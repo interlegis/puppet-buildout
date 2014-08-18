@@ -12,7 +12,7 @@ define buildout::part ( $part_name    = $name,
     order   => "04${order}",
   }
 
-  plone::buildoutsection { "part_$name":
+  buildout::section { "part_$name":
     section_name => "$part_name",
     cfghash      => $cfghash,
     buildout_dir => "${buildout_dir}",

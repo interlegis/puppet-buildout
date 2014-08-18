@@ -2,14 +2,16 @@
 # requires https://github.com/stankevich/puppet-python
 #          https://github.com/example42/puppet-wget
 #          https://github.com/puppetlabs/puppetlabs-concat
+#          https://github.com/puppetlabs/puppetlabs-stdlib
 
-define buildout::env ( $dir       = $buildout::params::dir,
-                       $cache_dir = $buildout::params::cache_dir,
-                       $source    = $buildout::params::source, 
-                       $user      = $buildout::params::user,
-                       $group     = $buildout::params::group,
-                       $params    = {},
+define buildout::env ( $dir        = $buildout::params::dir,
+                       $source     = $buildout::params::source,
+                       $user       = $buildout::params::user,
+                       $group      = $buildout::params::group,
+                       $params     = {},
                      ) {
+
+  include buildout::params
 
   $sys_packages = [ 'python-setuptools',
                     'python2.7-dev',
@@ -18,13 +20,8 @@ define buildout::env ( $dir       = $buildout::params::dir,
                     'gcc-4.4', 'make', 'build-essential',
                     'software-properties-common',
                   ]
+  ensure_resource ( 'package', $sys_packages, { 'ensure' => 'installed' } )
 
-  if !defined(Package[$sys_packages]) {
-    package { $sys_packages: ensure => "installed" }
-  }
-
-  include buildout::params
-   
   if !defined(Class['python']) {
     class { 'python':
       version    => 'system',
@@ -32,20 +29,20 @@ define buildout::env ( $dir       = $buildout::params::dir,
       virtualenv => true,
       pip        => true,
     }
-  } 
-  
+  }
+
   # Clone buildout
   include wget
-  file { "${dir}/$name": 
+  file { "${dir}/$name":
     ensure  => directory,
     owner   => $user,
     group   => $group,
   }
 
-  if !defined(File["${dir}/${cache_dir}"]) {
-    file { [ "${dir}/${cache_dir}",
-             "${dir}/${cache_dir}/eggs",
-             "${dir}/${cache_dir}/downloads"] :
+  if !defined(File["${dir}/buildout-cache"]) {
+    file { [  "${dir}/buildout-cache",
+              "${dir}/buildout-cache/eggs",
+              "${dir}/buildout-cache/downloads"] :
       ensure  => directory,
       owner   => $user,
       group   => $group,
@@ -58,7 +55,7 @@ define buildout::env ( $dir       = $buildout::params::dir,
     user        => $user,
     require     => File["${dir}/$name"],
   }
- 
+
   # Create virtualenv
   python::virtualenv { "${dir}/$name":
     ensure       => present,
@@ -75,11 +72,11 @@ define buildout::env ( $dir       = $buildout::params::dir,
     cwd => "${dir}/$name",
     command => "${dir}/$name/bin/python ${dir}/$name/bootstrap.py",
     subscribe => Wget::Fetch["bootstrap_$name"],
-    require => [ Python::Virtualenv["${dir}/$name"],
-                 Concat["${dir}/$name/buildout.cfg"],
-               ],
+    require =>  [ Python::Virtualenv["${dir}/$name"],
+                  Concat["${dir}/$name/buildout.cfg"],
+                ],
     user => $user,
-  }  
+  }
 
   concat { "${dir}/$name/buildout.cfg":
     owner => $user, group => $group, mode => 440,
@@ -91,13 +88,13 @@ define buildout::env ( $dir       = $buildout::params::dir,
     order   => '01',
   }
 
-  $buildout_default_params = { eggs-directory => "${dir}/${cache_dir}/eggs",
-                               download-cache => "${dir}/${cache_dir}/downloads",
+  $buildout_default_params = { eggs-directory => "${dir}/buildout-cache/eggs",
+                               download-cache => "${dir}/buildout-cache/downloads",
                                parts          => "" }   
 
-  $buildout_final_params = merge($buildout_default_params, $buildout_params)
+  $buildout_final_params = merge($buildout_default_params, $params)
  
-  plone::buildoutsection { "buildout_$name":
+  buildout::section { "buildout_$name":
     section_name => "buildout",
     cfghash      => delete($buildout_final_params,'parts'),
     buildout_dir => "${dir}/$name",
