@@ -1,0 +1,12 @@
+
+[<%= @section_name %>]
+<%- @cfghash.keys.sort.each do |key| -%>
+<%-   if @cfghash[key].kind_of?(Array) -%>
+<%= key -%> =  
+<%-     @cfghash[key].each do |value| -%>
+    <%= value %>
+<%-     end   -%>
+<%-   else  -%>
+<%= key -%> = <%= @cfghash[key] %>
+<%-   end -%>
+<%- end -%>
