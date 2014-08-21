@@ -73,45 +73,24 @@ define buildout::env ( $dir        = $buildout::params::dir,
     command => "${dir}/$name/bin/python ${dir}/$name/bootstrap.py",
     subscribe => Wget::Fetch["bootstrap_$name"],
     require =>  [ Python::Virtualenv["${dir}/$name"],
-                  Concat["${dir}/$name/buildout.cfg"],
+                  Buildout::Cfgfile["buildout_cfg_$name"],
                 ],
     user => $user,
   }
 
-  concat { "${dir}/$name/buildout.cfg":
-    owner => $user, group => $group, mode => 440,
-  }
-
-  concat::fragment { "buildoutcfg_header_$name":
-    target  => "${dir}/$name/buildout.cfg",
-    content => "# This file is managed by Puppet. Changes will be periodically overwritten.\n\n",
-    order   => '01',
-  }
-
-  $buildout_default_params = { eggs-directory => "${dir}/buildout-cache/eggs",
-                               download-cache => "${dir}/buildout-cache/downloads",
-                               parts          => "" }   
-
-  $buildout_final_params = merge($buildout_default_params, $params)
- 
-  buildout::section { "buildout_$name":
-    section_name => "buildout",
-    cfghash      => delete($buildout_final_params,'parts'),
-    buildout_dir => "${dir}/$name",
-    order        => '02',
-  }
-  
-  concat::fragment { "buildoutcfg_parts_$name":
-    target  => "${dir}/$name/buildout.cfg",
-    content => "parts = \n",
-    order   => '03',
+  buildout::cfgfile { "buildout_cfg_$name":
+    filename => "buildout.cfg",
+    dir      => "${dir}/$name",
+    user     => $user,
+    group    => $group,
+    params   => $params,
   }
 
   exec { "run_buildout_$name":
     cwd => "${dir}/$name",
     command => "${dir}/$name/bin/buildout -c ${dir}/$name/buildout.cfg",
     subscribe => [ Exec["run_bootstrap_$name"],
-                   File["${dir}/$name/buildout.cfg"],
+                   Buildout::Cfgfile["buildout_cfg_$name"],
                  ],
     refreshonly => true,
     user => $user,
