@@ -5,7 +5,7 @@
 #          https://github.com/puppetlabs/puppetlabs-stdlib
 
 define buildout::env ( $dir        = $buildout::params::dir,
-                       $source     = $buildout::params::source,
+                       $source     = 'http://downloads.buildout.org/2/bootstrap.py',
                        $user       = $buildout::params::user,
                        $group      = $buildout::params::group,
                        $params     = {},
