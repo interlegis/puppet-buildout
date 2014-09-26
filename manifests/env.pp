@@ -46,6 +46,7 @@ define buildout::env ( $dir        = $buildout::params::dir,
       ensure  => directory,
       owner   => $user,
       group   => $group,
+      mode    => 'ug+r',
     }
   }
 
@@ -88,14 +89,22 @@ define buildout::env ( $dir        = $buildout::params::dir,
 
   exec { "run_buildout_$name":
     cwd => "${dir}/$name",
-    command => "${dir}/$name/bin/buildout -c ${dir}/$name/buildout.cfg",
-    subscribe => [ Exec["run_bootstrap_$name"],
-                   Buildout::Cfgfile["buildout_cfg_$name"],
-                 ],
+    command     => "${dir}/$name/bin/buildout -c ${dir}/$name/buildout.cfg",
+    subscribe   => [ Exec["run_bootstrap_$name"],
+                     Buildout::Cfgfile["buildout_cfg_$name"],
+                   ],
     refreshonly => true,
-    user => $user,
-    logoutput => true,
-    timeout => 0,
+    user        => $user,
+    logoutput   => true,
+    timeout     => 0,
+    notify      => Exec["update_group_permissions_$name"],
+  }
+
+  exec { "update_group_permissions_$name":
+    cwd         => "${dir}/buildout-cache",
+    command     => "/bin/chmod g+r -R ${dir}/buildout-cache",
+    refreshonly => true,
+    logoutput   => true,
   }
   
 }
