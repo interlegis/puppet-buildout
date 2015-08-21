@@ -9,6 +9,7 @@ define buildout::env ( $dir        = $buildout::params::dir,
                        $user       = $buildout::params::user,
                        $group      = $buildout::params::group,
                        $params     = {},
+                       $cachefile  = undef,
                      ) {
 
   include buildout::params
@@ -40,15 +41,38 @@ define buildout::env ( $dir        = $buildout::params::dir,
   }
 
   if !defined(File["${dir}/buildout-cache"]) {
-    file { [  "${dir}/buildout-cache",
-              "${dir}/buildout-cache/eggs",
-              "${dir}/buildout-cache/downloads"] :
-      ensure  => directory,
-      owner   => $user,
-      group   => $group,
-      mode    => 'ug+r',
+    if $cachefile {
+      wget::fetch { "buildout-cache-file-for-{$dir}":
+        source      => $cachefile,
+        destination => "${dir}/buildout-cache.tar.gz",
+        user        => $user,
+      }
+      exec { "untar_buildout_cache_for_${dir}":
+        creates => "${dir}/buildout-cache",
+        cwd => "${dir}",
+        command => "/bin/tar -xvzf buildout-cache.tar.gz",
+        subscribe => Wget::Fetch["buildout-cache-file-for-{$dir}"],
+        user => $user
+      }
+      file { "${dir}/buildout-cache":
+        ensure  => directory,
+        owner   => $user,
+        group   => $group,
+        mode    => 'ug+r',
+        require => Exec["untar_buildout_cache_for_${dir}"],
+      }
+    } else {
+      file { [  "${dir}/buildout-cache",
+                "${dir}/buildout-cache/eggs",
+                "${dir}/buildout-cache/downloads"] :
+        ensure  => directory,
+        owner   => $user,
+        group   => $group,
+        mode    => 'ug+r',
+      }
     }
   }
+
 
   wget::fetch { "bootstrap_$name":
     source      => $source,
@@ -98,6 +122,7 @@ define buildout::env ( $dir        = $buildout::params::dir,
     logoutput   => true,
     timeout     => 0,
     notify      => Exec["update_group_permissions_$name"],
+    require     => File["${dir}/buildout-cache"],
   }
 
   exec { "update_group_permissions_$name":
